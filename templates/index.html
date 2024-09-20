@@ -1,0 +1,194 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1 class="display-3 text-center">Math Problem Generator</h1>
+
+<!-- ส่วนสำหรับการแสดงปุ่มเลือกการใช้งาน -->
+<div class="text-center mb-4">
+    <button class="btn btn-primary" id="symbolButton" onclick="showSymbolInput()">กรอกประโยคสัญลักษณ์</button>
+    <button class="btn btn-secondary" id="randomButton" onclick="showRandomInput()">สุ่มโจทย์คณิตศาสตร์</button>
+</div>
+
+<!-- ฟอร์มกรอกประโยคสัญลักษณ์ -->
+<div id="symbolInput" class="container mt-3">
+    <div class="row">
+        <div class="col-md-12">
+            <h2 class="mb-3">กรอกประโยคสัญลักษณ์</h2>
+            <form action="{{ url_for('index') }}" method="post">
+                <div class="input-group mb-3">
+                    <input type="text" class="form-control" placeholder="กรุณาใส่ประโยคสัญลักษณ์ (คั่นด้วย , )" name="symsen">
+                    <select class="form-select" name="noun_category">
+                        <option value="random" selected>สุ่มสิ่งของที่อยู่ในโจทย์</option>
+                        <option value="object">วัตถุ</option>
+                        <option value="fruit">ผลไม้</option>
+                        <option value="vehicle">ยานพาหนะ</option>
+                        <option value="animal">สัตว์</option>
+                        <option value="plant">พืช</option>
+                        <option value="food">อาหาร</option>
+                    </select>
+                    <button class="btn btn-primary" type="submit">แต่งประโยค</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- แสดงประโยคที่ผู้ใช้ป้อนมา -->
+    {% if symsentences %}
+        <div class="alert alert-info mt-3">
+            <strong>ประโยคสัญลักษณ์ที่คุณกรอก:</strong> {{ symsentences }} <br>
+            <strong>ประเภทที่คุณเลือก:</strong> {{ problem_type }}
+        </div>
+    {% endif %}
+</div>
+
+<!-- ฟอร์มสุ่มโจทย์คณิตศาสตร์ -->
+<div id="randomInput" class="container mt-3 d-none">
+    <div class="row">
+        <div class="col-md-12">
+            <h2 class="mb-3">สุ่มโจทย์คณิตศาสตร์</h2>
+            <form action="{{ url_for('index') }}" method="post">
+                <div class="input-group mb-3">
+                    <select class="form-select" name="math_symbol">
+                        <option value="+" selected>บวก (+)</option>
+                        <option value="-">ลบ (-)</option>
+                        <option value="">คูณ ()</option>
+                        <option value="/">หาร (/)</option>
+                    </select>
+
+                    <select class="form-select" name="digit_choice">
+                        <option value="หน่วย" selected>หลักหน่วย</option>
+                        <option value="สิบ">หลักสิบ</option>
+                        <option value="ร้อย">หลักร้อย</option>
+                        <option value="พัน">หลักพัน</option>
+                    </select>
+
+                    <select class="form-select" name="noun_category">
+                        <option value="random" selected>สุ่มสิ่งของที่อยู่ในโจทย์</option>
+                        <option value="object">วัตถุ</option>
+                        <option value="fruit">ผลไม้</option>
+                        <option value="vehicle">ยานพาหนะ</option>
+                        <option value="animal">สัตว์</option>
+                        <option value="plant">พืช</option>
+                        <option value="food">อาหาร</option>
+                    </select>
+
+                    <!-- เพิ่มการเลือกจำนวนข้อ -->
+                    <select class="form-select" name="problem_count">
+                        <option value="1" selected>1 ข้อ</option>
+                        <option value="2">2 ข้อ</option>
+                        <option value="3">3 ข้อ</option>
+                        <option value="4">4 ข้อ</option>
+                        <option value="5">5 ข้อ</option>
+                    </select>
+
+                    <button class="btn btn-primary" type="submit">สุ่มโจทย์</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- แสดงตัวเลือกที่ผู้ใช้เลือกในส่วนการสุ่มโจทย์ -->
+    {% if math_symbol or digit_choice or problem_type %}
+        <div class="alert alert-info mt-3">
+            <strong>คุณเลือก:</strong> 
+            <ul>
+                <li><strong>สัญลักษณ์ทางคณิตศาสตร์:</strong> {{ math_symbol }}</li>
+                <li><strong>จำนวนหลัก:</strong> {{ digit_choice }}</li>
+                <li><strong>ประเภทสิ่งของ:</strong> {{ problem_type }}</li>
+                <li><strong>จำนวนข้อที่ต้องการ:</strong> {{ problem_count }} ข้อ</li> <!-- แสดงจำนวนข้อที่ผู้ใช้เลือก -->
+            </ul>
+        </div>
+    {% endif %}
+</div>
+
+<!-- แสดงโจทย์ที่ได้ -->
+{% if updated_problems %}
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3>โจทย์ที่ได้</h3>
+        <div>
+            <!-- ปุ่มบันทึกเป็น PDF -->
+            <form action="{{ url_for('download_pdf') }}" method="post" class="d-inline">
+                <button class="btn btn-success" type="submit">บันทึกเป็น PDF</button>
+            </form>
+            
+            <!-- ปุ่มลบโจทย์ทั้งหมด -->
+            <form action="{{ url_for('clear_all') }}" method="post" class="d-inline">
+                <button class="btn btn-danger" type="submit">ลบโจทย์ทั้งหมด</button>
+            </form>
+        </div>
+    </div>
+    <div class="card">
+        <div class="card-body">
+            {% for idx in range(updated_problems|length) %}
+                <div class="mb-3">
+                    <p class="problem-text">{{ updated_problems[idx] }}</p> <!-- แสดงโจทย์ -->
+                    <div>
+                        <!-- แสดงคำตอบของโจทย์ -->
+                        <h4 class="problem-text">คำตอบ: {{ answers[idx] }} {{ units[idx] }}</h4> <!-- แสดงคำตอบ -->
+                        
+                        <!-- ปุ่มแก้ไขและลบ -->
+                        <form action="{{ url_for('edit') }}" method="post" class="d-inline">
+                            <input type="hidden" name="problem_to_edit" value="{{ updated_problems[idx] }}">
+                            <button class="btn btn-warning btn-sm" type="submit">แก้ไข</button>
+                        </form>
+                        <form action="{{ url_for('delete') }}" method="post" class="d-inline">
+                            <input type="hidden" name="problem_to_delete" value="{{ updated_problems[idx] }}">
+                            <button class="btn btn-danger btn-sm" type="submit">ลบ</button>
+                        </form>
+                        
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+{% endif %}
+
+<script>
+function showSymbolInput() {
+    document.getElementById('symbolInput').classList.remove('d-none');
+    document.getElementById('randomInput').classList.add('d-none');
+}
+
+function showRandomInput() {
+    document.getElementById('randomInput').classList.remove('d-none');
+    document.getElementById('symbolInput').classList.add('d-none');
+}
+</script>
+{% endblock %}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
