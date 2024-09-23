@@ -51,7 +51,7 @@
                     <select class="form-select" name="math_symbol">
                         <option value="+" selected>บวก (+)</option>
                         <option value="-">ลบ (-)</option>
-                        <option value="">คูณ ()</option>
+                        <option value="*">คูณ (*)</option>
                         <option value="/">หาร (/)</option>
                     </select>
 
@@ -95,7 +95,7 @@
                 <li><strong>สัญลักษณ์ทางคณิตศาสตร์:</strong> {{ math_symbol }}</li>
                 <li><strong>จำนวนหลัก:</strong> {{ digit_choice }}</li>
                 <li><strong>ประเภทสิ่งของ:</strong> {{ problem_type }}</li>
-                <li><strong>จำนวนข้อที่ต้องการ:</strong> {{ problem_count }} ข้อ</li> <!-- แสดงจำนวนข้อที่ผู้ใช้เลือก -->
+                <li><strong>จำนวนข้อที่ต้องการ:</strong> {{ problem_count }} ข้อ</li>
             </ul>
         </div>
     {% endif %}
@@ -122,12 +122,12 @@
             {% for idx in range(updated_problems|length) %}
                 <div class="mb-3">
                     <p class="problem-text">{{ updated_problems[idx] }}</p> <!-- แสดงโจทย์ -->
-                    <div>
-                        <!-- แสดงคำตอบของโจทย์ -->
-                        <h4 class="problem-text">คำตอบ: {{ answers[idx] }} {{ units[idx] }}</h4> <!-- แสดงคำตอบ -->
-                        
+                    <div class="d-flex align-items-center mb-2">
+                        <!-- ปุ่มแสดงคำตอบ -->
+                        <button class="btn btn-info btn-sm me-2" type="button" onclick="showAnswer('{{ idx }}')">แสดงคำตอบ</button>
+
                         <!-- ปุ่มแก้ไขและลบ -->
-                        <form action="{{ url_for('edit') }}" method="post" class="d-inline">
+                        <form action="{{ url_for('edit') }}" method="post" class="d-inline me-2">
                             <input type="hidden" name="problem_to_edit" value="{{ updated_problems[idx] }}">
                             <button class="btn btn-warning btn-sm" type="submit">แก้ไข</button>
                         </form>
@@ -135,8 +135,12 @@
                             <input type="hidden" name="problem_to_delete" value="{{ updated_problems[idx] }}">
                             <button class="btn btn-danger btn-sm" type="submit">ลบ</button>
                         </form>
-                        
                     </div>
+
+                    <!-- แสดงคำตอบของโจทย์ (ซ่อนเริ่มต้น) -->
+                    <h4 class="problem-text answer" id="answer_{{ idx }}" style="display:none;">
+                        ตอบ: {{ answers[idx] }} {{ units[idx] }}
+                    </h4>
                 </div>
             {% endfor %}
         </div>
@@ -153,7 +157,20 @@ function showRandomInput() {
     document.getElementById('randomInput').classList.remove('d-none');
     document.getElementById('symbolInput').classList.add('d-none');
 }
+
+function showAnswer(idx) {
+    // ค้นหาคำตอบที่ถูกซ่อนอยู่
+    var answerElement = document.getElementById('answer_' + idx);
+    
+    // สลับการแสดง/ซ่อนคำตอบ
+    if (answerElement.style.display === "none") {
+        answerElement.style.display = "block"; // แสดงคำตอบ
+    } else {
+        answerElement.style.display = "none"; // ซ่อนคำตอบ
+    }
+}
 </script>
+
 {% endblock %}
 
 

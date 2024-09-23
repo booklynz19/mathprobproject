@@ -11,6 +11,8 @@ from reportlab.pdfgen import canvas
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfbase import pdfmetrics
 from flask import send_file
+from datetime import datetime
+
 import io
 
 app = Flask(__name__)
@@ -227,6 +229,9 @@ def generate_random_number_by_digits(digit_type):
 
 # ฟังก์ชันสุ่มโจทย์จากการเลือกสัญลักษณ์พร้อมกับการสุ่มจาก part4
 def generate_problem_with_random_numbers_and_part4(math_symbol, digit_choice, problem_type):
+    # เคลียร์ข้อมูลหน่วยก่อนสร้างโจทย์ใหม่
+    session['units'] = []  # ลบข้อมูลหน่วยที่เก็บอยู่เดิม
+
     num1 = generate_random_number_by_digits(digit_choice)
     num2 = generate_random_number_by_digits(digit_choice)
     symsentence = f"{num1} {math_symbol} {num2}"
@@ -251,10 +256,53 @@ def generate_problem_with_random_numbers_and_part4(math_symbol, digit_choice, pr
                     new_word = get_random_word_from_part4divide()
                 else:
                     new_word = get_random_word_from_part4add()
-                
+
                 if new_word:
                     parts[3] = new_word  # แทนที่ส่วนที่ 3 ด้วยคำที่สุ่มจาก part4
                 original_problem = ' '.join(parts)
+
+            # คำนวณคำตอบ
+            answer = None
+            numbers_and_symbols = extractmathsym(original_problem)
+            if '+' in symsentence:
+                nums = [int(num) for num in numbers_and_symbols]
+                answer = sum(nums)
+            elif '-' in symsentence:
+                nums = [int(num) for num in numbers_and_symbols]
+                answer = nums[0] - sum(nums[1:])
+            elif '*' in symsentence:
+                nums = [int(num) for num in numbers_and_symbols]
+                answer = 1
+                for num in nums:
+                    answer *= num
+            elif '/' in symsentence:
+                nums = [int(num) for num in numbers_and_symbols]
+                answer = nums[0]
+                for num in nums[1:]:
+                    if num != 0:
+                        answer /= num
+                    else:
+                        answer = 'ไม่สามารถหารด้วยศูนย์ได้'
+                        break
+
+            # เก็บคำตอบและหน่วยลงใน session
+            if answer is not None:
+                answers = session.get('answers', [])
+                answers.append(answer)
+                session['answers'] = answers
+
+            # ดึงคำสุดท้ายของประโยคมาเป็นหน่วย
+            tokenized_problem = word_tokenize(original_problem, engine='newmm')
+            if '?' in tokenized_problem:
+                question_mark_index = tokenized_problem.index('?')
+                if question_mark_index > 0:
+                    units = session.get('units', [])
+                    units.append(tokenized_problem[question_mark_index - 1])  # เก็บคำสุดท้ายก่อนเครื่องหมาย '?' เป็นหน่วย
+                    session['units'] = units
+            else:
+                units = session.get('units', [])
+                units.append(tokenized_problem[-1])  # เก็บคำสุดท้ายของโจทย์เป็นหน่วย
+                session['units'] = units
 
             return original_problem
         else:
@@ -433,23 +481,15 @@ def index():
         print(f"Units: {units}")
 
     return render_template('index.html',
-                           updated_problems=updated_problems,
-                           answers=answers,
-                           units=units,
-                           error=error,
-                           symsentences=symsentences,
-                           problem_type=problem_type,
-                           math_symbol=math_symbol,
-                           digit_choice=digit_choice,
-                           problem_count=problem_count)
-
-
-
-
-
-
-
-
+        updated_problems=updated_problems,
+        answers=answers,
+        units=units,
+        error=error,
+        symsentences=symsentences,
+        problem_type=problem_type,
+        math_symbol=math_symbol,
+        digit_choice=digit_choice,
+        problem_count=problem_count)
 
 @app.route('/edit', methods=['POST', 'GET'])
 def edit():
@@ -521,7 +561,6 @@ def delete():
     return redirect(url_for('index'))
 
 
-
 @app.route('/clear_all', methods=['POST'])
 def clear_all():
     # ลบข้อมูลทั้งหมดใน session
@@ -532,55 +571,69 @@ def clear_all():
     return redirect(url_for('index'))
 
 
-
 # การบันทึกโจทย์
 @app.route('/download_pdf', methods=['POST'])
 def download_pdf():
     updated_problems = session.get('updated_problems', [])
-
+    
     # ตรวจสอบว่าโจทย์ไม่ว่างเปล่า
     if not updated_problems:
         return "No problems to download", 400
-
+    
     # สร้างไฟล์ PDF ใน memory
     buffer = io.BytesIO()
     c = canvas.Canvas(buffer, pagesize=letter)
-
+    
     # เพิ่มการลงทะเบียนฟอนต์ภาษาไทย
     pdfmetrics.registerFont(TTFont('THSarabun', 'THSarabunNew.ttf'))
-
+    
     # ตั้งค่าฟอนต์ภาษาไทยและขนาดฟอนต์
     text_object = c.beginText(50, 750)
     text_object.setFont("THSarabun", 16)
+    
+    # วาด "ชื่อ", "นามสกุล", "เลขที่", "วันที่" ในบรรทัดเดียวกัน
+    text_object.textLine(f"ชื่อ: ____________  นามสกุล: ____________  เลขที่: ______        วันที่: ____________")
+    c.drawText(text_object)
+    
+    # ขยับ "คะแนน" ไปทางขวาสุด
+    c.setFont("THSarabun", 16)
+    c.drawRightString(580, 750, "คะแนน: ______")  # ขยับคะแนนไปมุมขวาสุด
 
-    # เพิ่มหัวข้อ
-    text_object.textLine("โจทย์ที่ผู้ใช้สร้างขึ้น")
-    text_object.moveCursor(0, 20)
+    # วาดข้อความ "Math Problem Generator" ตรงกลางของหน้า
+    c.setFont("THSarabun", 20)  # ตั้งขนาดฟอนต์ใหญ่ขึ้นสำหรับหัวข้อ
+    c.drawCentredString(300, 720, "Math Problem Generator")  # ข้อความตรงกลางที่พิกัด y = 720
 
-    # เพิ่มโจทย์พร้อมหมายเลข
+    # เริ่มต้นตำแหน่ง y สำหรับโจทย์
+    text_object = c.beginText(50, 680)  # เริ่มที่ตำแหน่งล่างลงมาจาก "Math Problem Generator"
+    text_object.setFont("THSarabun", 16)
+    
     for i, problem in enumerate(updated_problems, 1):
         text_object.textLine(f"{i}) {problem}")
-        text_object.moveCursor(0, 20)
-
+        text_object.moveCursor(0, 10)  # ลดระยะห่างระหว่างโจทย์กับบรรทัดคำว่า "ตอบ" ให้เหลือเพียง 10
+        text_object.textLine("ตอบ: .....................................................................................")  # เพิ่มบรรทัดคำว่า "ตอบ" ใต้โจทย์
+        text_object.moveCursor(0, 5)  # ลดระยะห่างระหว่างโจทย์แต่ละข้อ
+        
         # ตรวจสอบว่าถ้าตำแหน่ง y ต่ำเกินไป จะขึ้นหน้าใหม่
-        if text_object.getY() < 100:
-            c.drawText(text_object)
-            c.showPage()
-            text_object = c.beginText(50, 750)
+        if text_object.getY() < 100:  # กำหนดจุดที่ควรเริ่มหน้ากระดาษใหม่
+            c.drawText(text_object)  # วาดข้อความบนหน้ากระดาษ
+            c.showPage()  # ขึ้นหน้ากระดาษใหม่
+            text_object = c.beginText(50, 750)  # ตั้งตำแหน่ง y ใหม่สำหรับหน้าใหม่
             text_object.setFont("THSarabun", 16)
-
+    
     c.drawText(text_object)
-
+    
     # เพิ่มเลขหน้าที่มุมล่างขวา
     for page_num in range(1, c.getPageNumber() + 1):
         c.setFont("THSarabun", 12)
         c.drawRightString(580, 20, f"Page {page_num}")
-
+    
     c.save()
-
+    
     # ส่งไฟล์ PDF กลับให้ผู้ใช้
     buffer.seek(0)
     return send_file(buffer, as_attachment=True, download_name="math_problems.pdf", mimetype='application/pdf')
+
+
 
 if __name__ == "__main__":
     app.run(debug=True)
