@@ -227,7 +227,6 @@ def generate_random_number_by_digits(digit_type):
         return random.randint(1000, 9999)
     return 0
 
-# ฟังก์ชันสุ่มโจทย์จากการเลือกสัญลักษณ์พร้อมกับการสุ่มจาก part4
 def generate_problem_with_random_numbers_and_part4(math_symbol, digit_choice, problem_type):
     # เคลียร์ข้อมูลหน่วยก่อนสร้างโจทย์ใหม่
     session['units'] = []  # ลบข้อมูลหน่วยที่เก็บอยู่เดิม
@@ -260,6 +259,14 @@ def generate_problem_with_random_numbers_and_part4(math_symbol, digit_choice, pr
                 if new_word:
                     parts[3] = new_word  # แทนที่ส่วนที่ 3 ด้วยคำที่สุ่มจาก part4
                 original_problem = ' '.join(parts)
+
+            # สุ่มคำนามจากฐานข้อมูลแล้วแทนที่คำนามที่เป็นประธานในโจทย์
+            nouns, verbs, _ = processmathprob(original_problem)
+            if nouns:
+                first_noun = nouns[0]
+                new_noun = get_random_noun_from_db2()  # สุ่มคำนามใหม่
+                if new_noun:
+                    original_problem = original_problem.replace(first_noun, new_noun, 1)  # แทนที่คำนาม
 
             # คำนวณคำตอบ
             answer = None
@@ -311,6 +318,7 @@ def generate_problem_with_random_numbers_and_part4(math_symbol, digit_choice, pr
         print(f"Error: {err}")
         return None
 
+
 @app.route('/', methods=['POST', 'GET'])
 def index():
     original_problem = None
@@ -342,6 +350,7 @@ def index():
                 generated_problem = generate_problem_with_random_numbers_and_part4(math_symbol, digit_choice, problem_type)
                 if generated_problem:
                     updated_problems.append(generated_problem)
+                    
 
                     # คำนวณคำตอบตามสัญลักษณ์ที่สุ่มมา
                     answer = None  # ตั้งค่าเริ่มต้นของตัวแปร answer
@@ -418,11 +427,28 @@ def index():
                             for old_num, new_num in zip(numbers_in_problem, numbers_and_symbols):
                                 original_problem = original_problem.replace(old_num, new_num, 1)
 
-                            print("Updated Problem: ", original_problem)
+                            nouns, verbs, _ = processmathprob(original_problem)
+                            if nouns:
+                                first_noun = nouns[0]
+                                new_noun = get_random_noun_from_db2()
+                                if new_noun:
+                                    original_problem = original_problem.replace(first_noun, new_noun, 1)
 
+                            parts = split_sentence(original_problem)
+                            if len(parts) > 3:
+                                if '-' in symsentence:
+                                    new_word = get_random_word_from_part4minus()
+                                elif '*' in symsentence:
+                                    new_word = get_random_word_from_part4multiply()
+                                elif '/' in symsentence:
+                                    new_word = get_random_word_from_part4divide()
+                                else:
+                                    new_word = get_random_word_from_part4add()
+                                if new_word:
+                                    parts[3] = new_word
+                                original_problem = ' '.join(parts)
                             # กำหนดค่าเริ่มต้นให้กับตัวแปร answer
                             answer = None
-                            
                             # ดึงคำสุดท้ายจากโจทย์มาใช้เป็นหน่วยของคำตอบ
                             tokenized_problem = word_tokenize(original_problem, engine='newmm')
                             if '?' in tokenized_problem:
@@ -455,10 +481,10 @@ def index():
                                     else:
                                         answer = 'ไม่สามารถหารด้วยศูนย์ได้'
                                         break
-
                             # เก็บคำตอบลงในลิสต์ (เฉพาะเมื่อ answer ถูกกำหนดค่าแล้ว)
                             if answer is not None:
                                 answers.append(answer)
+
                             updated_problems.append(original_problem)
                         else:
                             error = "ไม่พบโจทย์ในฐานข้อมูล"
@@ -466,9 +492,9 @@ def index():
                         error = str(err)
                     finally:
                         if 'mycursor' in locals():
-                            mycursor.close()  # type: ignore
+                            mycursor.close() # type: ignore
                         if 'mydb' in locals():
-                            mydb.close()  # type: ignore
+                            mydb.close() # type: ignore
                 else:
                     error = "เราต้องการแค่ประโยคสัญลักษณ์ทางคณิตศาสตร์"
 
@@ -490,6 +516,7 @@ def index():
         math_symbol=math_symbol,
         digit_choice=digit_choice,
         problem_count=problem_count)
+
 
 @app.route('/edit', methods=['POST', 'GET'])
 def edit():
