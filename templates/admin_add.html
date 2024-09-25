@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <h1 class="mt-5">เพิ่มโจทย์คณิตศาสตร์ใหม่</h1>
+
+    <form action="/admin/add_problem" method="POST" class="mt-4">
+        <div class="mb-3">
+            <label for="problem" class="form-label">โจทย์คณิตศาสตร์:</label>
+            <textarea id="problem" name="problem" rows="4" class="form-control" required></textarea>
+        </div>
+
+        <div class="mb-3">
+            <label for="type" class="form-label">ประเภท:</label>
+            <select id="type" name="type" class="form-select" required>
+                <option value="fruit">ผลไม้</option>
+                <option value="object">สิ่งของ</option>
+                <option value="food">อาหาร</option>
+                <option value="animal">สัตว์</option>
+                <option value="plant">พืช</option> <!-- เพิ่มประเภทพืช -->
+                <option value="vehicle">ยานพาหนะ</option> <!-- เพิ่มประเภทยานพาหนะ -->
+            </select>
+        </div>
+
+        <div class="mb-3">
+            <label for="table" class="form-label">เลือกตารางที่ต้องการใส่ข้อมูล:</label>
+            <select id="table" name="table" class="form-select" required>
+                <option value="mathprob">ตารางปกติ (mathprob)</option>
+                <option value="mathprob_minus">ลบ (mathprob_minus)</option>
+                <option value="mathprob_multiply">คูณ (mathprob_multiply)</option>
+                <option value="mathprob_divide">หาร (mathprob_divide)</option>
+            </select>
+        </div>
+
+        <button type="submit" class="btn btn-primary">เพิ่มโจทย์</button>
+    </form>
+
+    {% if success %}
+    <div class="alert alert-success mt-4" role="alert">
+        โจทย์ถูกเพิ่มลงในฐานข้อมูลเรียบร้อยแล้ว!
+    </div>
+    {% endif %}
+
+    {% if error %}
+    <div class="alert alert-danger mt-4" role="alert">
+        เกิดข้อผิดพลาด: {{ error }}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+
+

@@ -660,7 +660,45 @@ def download_pdf():
     buffer.seek(0)
     return send_file(buffer, as_attachment=True, download_name="math_problems.pdf", mimetype='application/pdf')
 
+@app.route('/admin/add_problem', methods=['GET', 'POST'])
+def add_problem():
+    if request.method == 'POST':
+        # รับข้อมูลจากฟอร์ม
+        problem = request.form.get('problem')
+        problem_type = request.form.get('type')
+        table = request.form.get('table')  # รับตารางที่ผู้ใช้เลือก
 
+        # ตรวจสอบว่าได้กรอกข้อมูลมาครบหรือไม่
+        if not problem or not problem_type or not table:
+            return render_template('admin_add.html', error="กรุณากรอกข้อมูลให้ครบถ้วน")
+
+        try:
+            # เชื่อมต่อกับฐานข้อมูล
+            mydb = mysql.connector.connect(host=host, user=user, password=password, database=db)
+            mycursor = mydb.cursor()
+
+            # เพิ่มข้อมูลโจทย์ใหม่ลงในตารางที่ผู้ใช้เลือก
+            query = f"INSERT INTO {table} (problem, type) VALUES (%s, %s)"
+            mycursor.execute(query, (problem, problem_type))
+            mydb.commit()  # บันทึกการเปลี่ยนแปลงลงฐานข้อมูล
+
+            return render_template('admin_add.html', success=True)
+        
+        except mysql.connector.Error as err:
+            print(f"Error: {err}")
+            return render_template('admin_add.html', error=str(err))
+        
+        finally:
+            if 'mycursor' in locals() and mycursor is not None:
+                mycursor.close()
+            if 'mydb' in locals() and mydb is not None:
+                mydb.close()
+    
+    return render_template('admin_add.html')
+
+@app.route('/admin', methods=['GET', 'POST'])
+def admin_page():
+    return render_template('admin_add.html')
 
 if __name__ == "__main__":
     app.run(debug=True)
