@@ -660,45 +660,84 @@ def download_pdf():
     buffer.seek(0)
     return send_file(buffer, as_attachment=True, download_name="math_problems.pdf", mimetype='application/pdf')
 
-@app.route('/admin/add_problem', methods=['GET', 'POST'])
-def add_problem():
-    if request.method == 'POST':
-        # รับข้อมูลจากฟอร์ม
-        problem = request.form.get('problem')
-        problem_type = request.form.get('type')
-        table = request.form.get('table')  # รับตารางที่ผู้ใช้เลือก
-
-        # ตรวจสอบว่าได้กรอกข้อมูลมาครบหรือไม่
-        if not problem or not problem_type or not table:
-            return render_template('admin_add.html', error="กรุณากรอกข้อมูลให้ครบถ้วน")
-
-        try:
-            # เชื่อมต่อกับฐานข้อมูล
-            mydb = mysql.connector.connect(host=host, user=user, password=password, database=db)
-            mycursor = mydb.cursor()
-
-            # เพิ่มข้อมูลโจทย์ใหม่ลงในตารางที่ผู้ใช้เลือก
-            query = f"INSERT INTO {table} (problem, type) VALUES (%s, %s)"
-            mycursor.execute(query, (problem, problem_type))
-            mydb.commit()  # บันทึกการเปลี่ยนแปลงลงฐานข้อมูล
-
-            return render_template('admin_add.html', success=True)
-        
-        except mysql.connector.Error as err:
-            print(f"Error: {err}")
-            return render_template('admin_add.html', error=str(err))
-        
-        finally:
-            if 'mycursor' in locals() and mycursor is not None:
-                mycursor.close()
-            if 'mydb' in locals() and mydb is not None:
-                mydb.close()
-    
-    return render_template('admin_add.html')
-
 @app.route('/admin', methods=['GET', 'POST'])
 def admin_page():
-    return render_template('admin_add.html')
+    error = None
+    success = None
+    
+    # เมื่อ POST ให้ทำการเพิ่มโจทย์ใหม่
+    if request.method == 'POST':
+        problem = request.form.get('problem')
+        problem_type = request.form.get('type')
+        table_name = request.form.get('table')
+
+        if not problem or not problem_type or not table_name:
+            error = "กรุณากรอกข้อมูลให้ครบถ้วน"
+        else:
+            try:
+                # เชื่อมต่อกับฐานข้อมูลเพื่อเพิ่มโจทย์
+                mydb = mysql.connector.connect(host=host, user=user, password=password, database=db)
+                mycursor = mydb.cursor()
+                query = f"INSERT INTO {table_name} (problem, type) VALUES (%s, %s)"
+                mycursor.execute(query, (problem, problem_type))
+                mydb.commit()
+                success = "โจทย์ถูกเพิ่มเรียบร้อยแล้ว!"
+            except mysql.connector.Error as err:
+                error = f"เกิดข้อผิดพลาด: {err}"
+            finally:
+                if 'mycursor' in locals():
+                    mycursor.close()
+                if 'mydb' in locals():
+                    mydb.close()
+    
+    # เมื่อ GET ให้แสดงโจทย์จากตารางที่เลือก พร้อมกรองตามประเภท
+    table_name = request.args.get('table', 'mathprob')  # ตารางเริ่มต้น
+    filter_type = request.args.get('filter_type', '')  # รับค่าการกรองประเภท
+    problems = []
+
+    try:
+        mydb = mysql.connector.connect(host=host, user=user, password=password, database=db)
+        mycursor = mydb.cursor(dictionary=True)
+        if filter_type:
+            query = f"SELECT * FROM {table_name} WHERE type = %s"
+            mycursor.execute(query, (filter_type,))
+        else:
+            query = f"SELECT * FROM {table_name}"
+            mycursor.execute(query)
+        problems = mycursor.fetchall()
+    except mysql.connector.Error as err:
+        error = f"เกิดข้อผิดพลาดในการเชื่อมต่อฐานข้อมูล: {err}"
+    finally:
+        if 'mycursor' in locals():
+            mycursor.close()
+        if 'mydb' in locals():
+            mydb.close()
+
+    return render_template('admin.html', problems=problems, error=error, success=success, table_name=table_name, filter_type=filter_type)
+
+@app.route('/admin/delete_problem', methods=['POST'])
+def delete_problem():
+    problem_id = request.form.get('problem_id')
+    table_name = request.form.get('table')
+
+    try:
+        # ลบโจทย์ตาม ID ที่เลือก
+        mydb = mysql.connector.connect(host=host, user=user, password=password, database=db)
+        mycursor = mydb.cursor()
+        query = f"DELETE FROM {table_name} WHERE id = %s"
+        mycursor.execute(query, (problem_id,))
+        mydb.commit()
+    except mysql.connector.Error as err:
+        print(f"Error: {err}")
+    finally:
+        if 'mycursor' in locals():
+            mycursor.close()
+        if 'mydb' in locals():
+            mydb.close()
+
+    return redirect(url_for('admin_page', table=table_name))
+
+
 
 if __name__ == "__main__":
     app.run(debug=True)
