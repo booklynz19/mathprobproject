@@ -773,17 +773,22 @@ def delete_problem():
     problem_id = request.form.get('problem_id')
     success = None
     error = None
-    
+
     if table_name and problem_id:
         try:
-            mydb = mysql.connector.connect(host=host, user=user, password=password, database=db)
+            # เชื่อมต่อกับฐานข้อมูลที่ถูกต้อง
+            if table_name in ['word_nouns1', 'part4add', 'part4minus', 'part4multiply', 'part4divide']:
+                mydb = mysql.connector.connect(host=host, user=user, password=password, database='word')
+            else:
+                mydb = mysql.connector.connect(host=host, user=user, password=password, database=db)
+
             mycursor = mydb.cursor()
-            
+
             # สร้างคำสั่ง SQL เพื่อลบข้อมูลจากตารางที่เลือก
             query = f"DELETE FROM {table_name} WHERE id = %s"
             mycursor.execute(query, (problem_id,))
             mydb.commit()
-            
+
             success = "ลบข้อมูลสำเร็จ!"
         except mysql.connector.Error as err:
             error = f"เกิดข้อผิดพลาดในการลบข้อมูล: {err}"
@@ -798,7 +803,6 @@ def delete_problem():
     # หลังจากลบเสร็จ กลับไปยังหน้า admin พร้อมข้อความแจ้งเตือน
     return redirect(url_for('admin_page', success=success, error=error))
 
-    return redirect(url_for('admin_page', table=table_name))
 
 if __name__ == "__main__":
     app.run(debug=True)
