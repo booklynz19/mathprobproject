@@ -664,46 +664,98 @@ def download_pdf():
 def admin_page():
     error = None
     success = None
-    
-    # เมื่อ POST ให้ทำการเพิ่มโจทย์ใหม่
-    if request.method == 'POST':
-        problem = request.form.get('problem')
-        problem_type = request.form.get('type')
-        table_name = request.form.get('table')
 
-        if not problem or not problem_type or not table_name:
-            error = "กรุณากรอกข้อมูลให้ครบถ้วน"
-        else:
-            try:
-                # เชื่อมต่อกับฐานข้อมูลเพื่อเพิ่มโจทย์
-                mydb = mysql.connector.connect(host=host, user=user, password=password, database=db)
-                mycursor = mydb.cursor()
-                query = f"INSERT INTO {table_name} (problem, type) VALUES (%s, %s)"
-                mycursor.execute(query, (problem, problem_type))
-                mydb.commit()
-                success = "โจทย์ถูกเพิ่มเรียบร้อยแล้ว!"
-            except mysql.connector.Error as err:
-                error = f"เกิดข้อผิดพลาด: {err}"
-            finally:
-                if 'mycursor' in locals():
-                    mycursor.close()
-                if 'mydb' in locals():
-                    mydb.close()
-    
-    # เมื่อ GET ให้แสดงโจทย์จากตารางที่เลือก พร้อมกรองตามประเภท
+    # เมื่อ POST ให้ทำการเพิ่มข้อมูล
+    if request.method == 'POST':
+        if 'problem' in request.form:  # ตรวจสอบว่าเป็นฟอร์มสำหรับเพิ่มโจทย์
+            problem = request.form.get('problem')
+            problem_type = request.form.get('type')
+            table_name = request.form.get('table')
+
+            if not problem or not problem_type or not table_name:
+                error = "กรุณากรอกข้อมูลให้ครบถ้วน"
+            else:
+                try:
+                    # เชื่อมต่อกับฐานข้อมูลเพื่อเพิ่มโจทย์
+                    mydb = mysql.connector.connect(host=host, user=user, password=password, database=db)
+                    mycursor = mydb.cursor()
+                    query = f"INSERT INTO {table_name} (problem, type) VALUES (%s, %s)"
+                    mycursor.execute(query, (problem, problem_type))
+                    mydb.commit()
+                    success = "โจทย์ถูกเพิ่มเรียบร้อยแล้ว!"
+                except mysql.connector.Error as err:
+                    error = f"เกิดข้อผิดพลาด: {err}"
+                finally:
+                    if 'mycursor' in locals():
+                        mycursor.close()
+                    if 'mydb' in locals():
+                        mydb.close()
+
+        elif 'noun' in request.form:  # ตรวจสอบว่าเป็นฟอร์มสำหรับเพิ่มคำลงใน word_nouns1
+            noun = request.form.get('noun')
+            if not noun:
+                error = "กรุณากรอกข้อมูลให้ครบถ้วน"
+            else:
+                try:
+                    # เชื่อมต่อกับฐานข้อมูลเพื่อเพิ่มข้อมูลใน word_nouns1
+                    mydb = mysql.connector.connect(host=host, user=user, password=password, database='word')
+                    mycursor = mydb.cursor()
+                    query = "INSERT INTO word_nouns1 (nouns) VALUES (%s)"
+                    mycursor.execute(query, (noun,))
+                    mydb.commit()
+                    success = "ข้อมูลถูกเพิ่มลงในตาราง word_nouns1 เรียบร้อยแล้ว!"
+                except mysql.connector.Error as err:
+                    error = f"เกิดข้อผิดพลาด: {err}"
+                finally:
+                    if 'mycursor' in locals():
+                        mycursor.close()
+                    if 'mydb' in locals():
+                        mydb.close()
+
+        elif 'part4_value' in request.form:  # ตรวจสอบว่าเป็นฟอร์มสำหรับเพิ่มข้อมูลลงใน part4
+            part4_value = request.form.get('part4_value')
+            table_name = request.form.get('table')
+            if not part4_value or not table_name:
+                error = "กรุณากรอกข้อมูลให้ครบถ้วน"
+            else:
+                try:
+                    # เชื่อมต่อกับฐานข้อมูลเพื่อเพิ่มข้อมูลในตาราง part4 ที่เลือก
+                    mydb = mysql.connector.connect(host=host, user=user, password=password, database='word')
+                    mycursor = mydb.cursor()
+                    query = f"INSERT INTO {table_name} (part4) VALUES (%s)"
+                    mycursor.execute(query, (part4_value,))
+                    mydb.commit()
+                    success = f"ข้อมูลถูกเพิ่มลงในตาราง {table_name} เรียบร้อยแล้ว!"
+                except mysql.connector.Error as err:
+                    error = f"เกิดข้อผิดพลาด: {err}"
+                finally:
+                    if 'mycursor' in locals():
+                        mycursor.close()
+                    if 'mydb' in locals():
+                        mydb.close()
+
     table_name = request.args.get('table', 'mathprob')  # ตารางเริ่มต้น
     filter_type = request.args.get('filter_type', '')  # รับค่าการกรองประเภท
     problems = []
 
     try:
-        mydb = mysql.connector.connect(host=host, user=user, password=password, database=db)
+        mydb = mysql.connector.connect(host=host, user=user, password=password, database='word' if table_name.startswith('word') or table_name.startswith('part4') else db)
         mycursor = mydb.cursor(dictionary=True)
-        if filter_type:
-            query = f"SELECT * FROM {table_name} WHERE type = %s"
-            mycursor.execute(query, (filter_type,))
-        else:
+
+        if table_name == 'word_nouns1':
             query = f"SELECT * FROM {table_name}"
             mycursor.execute(query)
+        elif table_name.startswith('part4'):
+            query = f"SELECT * FROM {table_name}"
+            mycursor.execute(query)
+        else:
+            if filter_type:
+                query = f"SELECT * FROM {table_name} WHERE type = %s"
+                mycursor.execute(query, (filter_type,))
+            else:
+                query = f"SELECT * FROM {table_name}"
+                mycursor.execute(query)
+
         problems = mycursor.fetchall()
     except mysql.connector.Error as err:
         error = f"เกิดข้อผิดพลาดในการเชื่อมต่อฐานข้อมูล: {err}"
@@ -717,27 +769,36 @@ def admin_page():
 
 @app.route('/admin/delete_problem', methods=['POST'])
 def delete_problem():
-    problem_id = request.form.get('problem_id')
     table_name = request.form.get('table')
+    problem_id = request.form.get('problem_id')
+    success = None
+    error = None
+    
+    if table_name and problem_id:
+        try:
+            mydb = mysql.connector.connect(host=host, user=user, password=password, database=db)
+            mycursor = mydb.cursor()
+            
+            # สร้างคำสั่ง SQL เพื่อลบข้อมูลจากตารางที่เลือก
+            query = f"DELETE FROM {table_name} WHERE id = %s"
+            mycursor.execute(query, (problem_id,))
+            mydb.commit()
+            
+            success = "ลบข้อมูลสำเร็จ!"
+        except mysql.connector.Error as err:
+            error = f"เกิดข้อผิดพลาดในการลบข้อมูล: {err}"
+        finally:
+            if 'mycursor' in locals():
+                mycursor.close()
+            if 'mydb' in locals():
+                mydb.close()
+    else:
+        error = "ไม่พบข้อมูลที่จะลบ"
 
-    try:
-        # ลบโจทย์ตาม ID ที่เลือก
-        mydb = mysql.connector.connect(host=host, user=user, password=password, database=db)
-        mycursor = mydb.cursor()
-        query = f"DELETE FROM {table_name} WHERE id = %s"
-        mycursor.execute(query, (problem_id,))
-        mydb.commit()
-    except mysql.connector.Error as err:
-        print(f"Error: {err}")
-    finally:
-        if 'mycursor' in locals():
-            mycursor.close()
-        if 'mydb' in locals():
-            mydb.close()
+    # หลังจากลบเสร็จ กลับไปยังหน้า admin พร้อมข้อความแจ้งเตือน
+    return redirect(url_for('admin_page', success=success, error=error))
 
     return redirect(url_for('admin_page', table=table_name))
-
-
 
 if __name__ == "__main__":
     app.run(debug=True)
